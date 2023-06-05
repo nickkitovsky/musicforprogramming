@@ -8,6 +8,7 @@ MUSIC_DIR = 'D:/home/music/musicforprogramming'
 CONTENTS_FILENAME = 'contents.json'
 RSS_URL = 'https://musicforprogramming.net/rss.xml'
 MUSIC_DIR_PATH = Path(MUSIC_DIR)
+GENERATE_PLAYLIST = True
 PLAYLIST_DIR_PATH = MUSIC_DIR_PATH.parent
 HEADERS = {
     'accept': '/*',
@@ -97,4 +98,5 @@ def generate_playlist():
 xml_source = parse(urlopen(RSS_URL))
 tracks = get_track_items(xml_source)
 download_tracks(tracks)
-generate_playlist()
+if GENERATE_PLAYLIST:
+    generate_playlist()

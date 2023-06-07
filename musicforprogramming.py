@@ -1,11 +1,9 @@
-import json
 from pathlib import Path
 from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 from xml.dom.minidom import Document, Element, parse
 
 MUSIC_DIR = 'D:/home/music/musicforprogramming'
-CONTENTS_FILENAME = 'contents.json'
 RSS_URL = 'https://musicforprogramming.net/rss.xml'
 MUSIC_DIR_PATH = Path(MUSIC_DIR)
 GENERATE_PLAYLIST = True
@@ -17,24 +15,8 @@ HEADERS = {
 }
 
 
-def read_contents() -> list[dict[str, str]] | list:
-    if not MUSIC_DIR_PATH.exists():
-        Path.mkdir(MUSIC_DIR_PATH, parents=True)
-    try:
-        with open(MUSIC_DIR_PATH / CONTENTS_FILENAME, 'r') as fs:
-            return json.load(fs)
-    except FileNotFoundError:
-        with open(MUSIC_DIR_PATH / CONTENTS_FILENAME, 'w') as fs:
-            empty_contents = '[]'
-            fs.write(empty_contents)
-        return json.loads(empty_contents)
-
-
-def append_contents(parsed_item: dict[str, str]):
-    contents = read_contents()
-    contents.append(parsed_item)
-    with open(MUSIC_DIR_PATH / CONTENTS_FILENAME, 'w') as fs:
-        fs.write(json.dumps(contents))
+def find_exist_tracks() -> list[str]:
+    return [track.name for track in MUSIC_DIR_PATH.glob("*.mp3")]
 
 
 def get_track_items(xml: Document) -> list[dict[str, str]]:
@@ -43,39 +25,40 @@ def get_track_items(xml: Document) -> list[dict[str, str]]:
 
 
 def parse_xml_item(item: Element) -> dict[str, str]:
-    ITEM_ELEMENTS = ('title', 'link', 'pubDate', 'guid')
-    return {
+    ITEM_ELEMENTS = ('title', 'guid')
+    parsed_item = {
         element.tagName: element.firstChild.data  # type: ignore
         for element in item.childNodes
         if isinstance(element, Element) and element.tagName in ITEM_ELEMENTS
     }
+    return parsed_item | {
+        'filename': urlparse(parsed_item['guid'])
+        .path[1::]
+        .replace('music_for_programming_', '')
+    }
 
 
 def download_track(parsed_item: dict[str, str]):
-    filename = (
-        urlparse(parsed_item['guid']).path[1::].replace('music_for_programming_', '')
-    )
     print(f"{parsed_item['title']} download", end=" ")
-    titles = (content['title'] for content in read_contents())
-    if parsed_item['title'] in titles:
-        print('skipped.')
-    else:
-        url = urlparse(parsed_item['guid'])
-        safe_unicode_url = f'{url.scheme}://{url.netloc}{quote(url.path)}'
-        request = Request(url=safe_unicode_url, headers=HEADERS)
-        with open(MUSIC_DIR_PATH / filename, 'wb') as fs, urlopen(request) as response:
-            fs.write(response.read())
-            print('finished.')
-        append_contents(parsed_item)
+
+    url = urlparse(parsed_item['guid'])
+    safe_unicode_url = f'{url.scheme}://{url.netloc}{quote(url.path)}'
+    request = Request(url=safe_unicode_url, headers=HEADERS)
+    with open(MUSIC_DIR_PATH / parsed_item['filename'], 'wb') as fs, urlopen(
+        request
+    ) as response:
+        fs.write(response.read())
+        print('finished.')
 
 
 def download_tracks(parsed_track_items: list[dict[str, str]]):
-    exist_contents = read_contents()
+    exist_tracks = find_exist_tracks()
     new_track_items = [
         track_item
         for track_item in parsed_track_items
-        if track_item['title'] not in [content['title'] for content in exist_contents]
+        if track_item['filename'] not in exist_tracks
     ]
+
     if not new_track_items:
         print("No new tracks. Bye!")
     else:
@@ -83,6 +66,8 @@ def download_tracks(parsed_track_items: list[dict[str, str]]):
         for index, track in enumerate(new_track_items, start=1):
             print(f"({index}/{tracks_count})", end=" ")
             download_track(track)
+        if GENERATE_PLAYLIST:
+            generate_playlist()
 
 
 def generate_playlist():
@@ -98,5 +83,3 @@ def generate_playlist():
 xml_source = parse(urlopen(RSS_URL))
 tracks = get_track_items(xml_source)
 download_tracks(tracks)
-if GENERATE_PLAYLIST:
-    generate_playlist()

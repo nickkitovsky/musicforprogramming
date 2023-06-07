@@ -5,9 +5,8 @@
 
 ### **Edit `musicforprogramming.py` to use:**
  1. MUSIC_DIR *(your dir for mp3 files).* 
- 2. CONTENTS_FILENAME *(file is containg data about exist tracks (title, link to website, pub date, link to mp3 file).*
- 3. GENERATE_PLAYLIST *(True or False).* 
- 4. PLAYLIST_DIR_PATH *(dir for your generated playlist).*
+ 2. GENERATE_PLAYLIST *(True or False).* 
+ 3. PLAYLIST_DIR_PATH *(dir for your generated playlist).*
 
 ### TODO:
 * Add argparse.
